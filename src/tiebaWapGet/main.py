@@ -8,7 +8,7 @@ from sqlalchemy import Column, String, DateTime, Integer, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, MAX_RETRY, RETRY_AFTER
+from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, MAX_RETRY, RETRY_AFTER, URL_BASE_FLR, MAX_LOOP, MAX_PN
 from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader, PostAttachement, Thread
 from dateutil import parser as DateParser
 import logging
@@ -87,11 +87,12 @@ def makeEmptyAttachement(floor, parent, link) -> PostAttachement:
     return att
 
 
-def parsePost(postDiv: Tag, kz, pn, parent_override=None, floor_override=-1) -> dict:
+def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override:int=None, floor_override=-1) -> dict:
     postHeader = PostHeader()
     content = Content()
     contentHtml = Content_HTML()
     attachments = []
+    posts = []
 
     postHeader.mod_date = datetime.now()
 
@@ -104,8 +105,11 @@ def parsePost(postDiv: Tag, kz, pn, parent_override=None, floor_override=-1) -> 
 
     replyATag: Tag = postDiv.select_one("a.reply_to")
     href = "#reply"
+    hasFlr = False
     if replyATag:
         href = replyATag.attrs.get("href")
+        if re.match('回复\([0-9]+\)',replyATag.text.strip()):
+            hasFlr = True
     o = urlparse(href)
     param = parse_qs(o.query)
     pid = param.get("pid")
@@ -113,6 +117,14 @@ def parsePost(postDiv: Tag, kz, pn, parent_override=None, floor_override=-1) -> 
         pid = '_kz_{}'.format(kz)
     else:
         pid = pid[0]
+
+    if hasFlr:
+        flrPosts = readFlr(kz=kz,pid=pid)
+        if flrPosts:
+            posts.extend(flrPosts)
+
+    if flr:
+        pid = "_flr_{}-{}".format(parent_override,floor_override)
 
     un = None
     floor = None
@@ -173,9 +185,11 @@ def parsePost(postDiv: Tag, kz, pn, parent_override=None, floor_override=-1) -> 
 
     postHeader.floor = int(floor)
 
-    postHeader.flr = False
+    postHeader.flr = flr
 
     postHeader.parent = int(kz)
+    if flr:
+        postHeader.parent = int(parent_override)
 
     postHeader.pid = pid
     content.source = pid
@@ -188,15 +202,18 @@ def parsePost(postDiv: Tag, kz, pn, parent_override=None, floor_override=-1) -> 
         if att:
             attachments.append(att)
 
-    res = {
+    post = {
         'header': postHeader,
         'text': content,
         'html': contentHtml,
         'attachments': attachments
     }
 
+    posts.append(post)
+
+
     logging.debug("Get post from thread {} page {} floor {} pid {}".format(kz, pn, floor, pid))
-    return res
+    return posts
 
 
 def savePost(post: dict, engine):
@@ -255,9 +272,6 @@ def savePage(page: dict, engine):
 
 
 def readThreadPage(kw, kz, pn, good=None) -> {}:
-    import re
-    start = datetime.now().timestamp()
-
     param = {
         "kz": kz,
         "pn": pn
@@ -291,7 +305,7 @@ def readThreadPage(kw, kz, pn, good=None) -> {}:
         for count in range(MAX_RETRY):
             try:
                 post = parsePost(postDiv=postDiv, kz=kz, pn=pn)
-                posts.append(post)
+                posts.extend(post)
             except Exception as e:
                 logging.warning(
                     "Error get post retry {}/{} after {:.2f}s with {}".format(count, MAX_RETRY, RETRY_AFTER, e))
@@ -310,10 +324,62 @@ def readThreadPage(kw, kz, pn, good=None) -> {}:
     return res
 
 
+def readFlrPage(kz, pid, fpn, floor:int=0) -> {}:
+    param = {
+        "kz": kz,
+        "pid": pid,
+        "fpn": fpn
+    }
+
+    ret = req.get(url=URL_BASE_FLR, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
+    ret.encoding = 'utf-8'  # ret.apparent_encoding
+    soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
+
+    postDivs = soup.select('div .i')
+    posts = []
+    for postDiv in postDivs:
+        floor += 1
+        for count in range(MAX_RETRY):
+            try:
+                post = parsePost(postDiv=postDiv, kz=kz, pn=fpn,floor_override=floor,parent_override=pid,flr=True)
+                posts.extend(post)
+            except Exception as e:
+                logging.warning(
+                    "Error get post retry {}/{} after {:.2f}s with {}".format(count, MAX_RETRY, RETRY_AFTER, e))
+                logging.debug("Error get post {}".format(postDiv.text))
+            else:
+                break
+
+    res = {
+        'thread': None,
+        'posts': posts,
+        'floor':floor
+    }
+
+    if ret.text.find('>下一页</a>') < 0:
+        res['lastpage'] = True
+
+    return res
+
+
+def readFlr(kz, pid):
+    posts = []
+
+    floor = 0
+    for fpn in range(1,MAX_LOOP):
+        res = readFlrPage(kz=kz, pid=pid, fpn=fpn,floor=floor)
+        floor = res.get('floor')
+        posts.extend(res.get('posts'))
+        if res.get('lastpage'):
+            break
+    logging.info("Done get flr of kz {} pid {} len: {}".format(kz,pid,len(posts)))
+    return posts
+
+
 def fetchThread(kw, kz, engine, good=None):
     logging.info("Fetch thread {} of {}".format(kz, kw))
     pn = 0
-    for _ in range(10000):
+    for _ in range(MAX_LOOP):
         page = readThreadPage(kw=kw, kz=kz, pn='{}'.format(pn), good=good)
         savePage(page=page, engine=engine)
         if page.get('lastpage'):
@@ -353,14 +419,19 @@ def fetchForumPage(kw,pn,engine,good=None):
 
 def fetchForum(kw,engine, good=None):
     pn = 0
-    for _ in range(10000):
+    for _ in range(MAX_LOOP):
         hasNext = fetchForumPage(kw, pn, engine, good=good)
         if not hasNext:
             break
+
+        # On wap tieba pn can not pass 20000
+        if pn > MAX_PN:
+            break
         pn += 10
 
+
 def main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     # logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     # url = "m?kz=125327888&pn=0&lp=6015&spn=2&global=1&expand=2"
@@ -370,10 +441,13 @@ def main():
     engine = create_engine(DB_URL)
     Base.metadata.create_all(engine)
 
+    # readFlrPage(kz="125327888", pid="1058754776", fpn="1")
+    # readFlr(kz="125327888", pid="1058754776")
     # page = readThreadPage(kw='柯哀', kz="125327888", pn='1890')
 
-    # fetchPost(kw='柯哀', kz="6120869672", engine=engine)
-    fetchForum(kw='四枫院夜一',engine=engine,good=True)
+    # fetchThread(kw='显卡', kz="6131086464", engine=engine)
+    # fetchForum(kw='四枫院夜一',engine=engine,good=True)
+    fetchForum(kw='柯哀', engine=engine, good=True)
 
     # parseDate("12:36")
     pass

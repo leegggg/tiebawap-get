@@ -111,7 +111,7 @@ class PostHeader(Base):
     pid = Column(String)
     parent = Column(BigInteger, primary_key=True)
     floor = Column(Integer, primary_key=True)
-    flr = Column(Boolean)
+    flr = Column(Boolean, primary_key=True)
     un = Column(String)
     to = Column(String)
     create_date = Column(DateTime)

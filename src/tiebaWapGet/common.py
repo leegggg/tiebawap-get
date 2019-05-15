@@ -1,11 +1,5 @@
 import datetime
 
-scoreUrlFormat = "https://www.meijutt.com/inc/ajax.asp?id={}&action=newstarscorevideo"
-forumPageFormat = 'http://www.btbtt08.com/forum-index-fid-{}-page-{}.htm'
-threadRegexp = 'http://www.btbtt08.com/thread-index-fid-(?P<fid>[0-9]+)-tid-(?P<tid>[0-9]+).htm'
-attachementRegexp = 'http://www.btbtt08.com/attach-dialog-fid-(?P<fid>[0-9]+)-aid-(?P<aid>[0-9]+)-ajax-1.htm'
-attachementUrlFormat = "http://www.btbtt08.com/attach-download-fid-{}-aid-{}.htm"
-attachementUrlRegexp = "http://www.btbtt08.com/attach-download-fid-(?P<fid>[0-9]+)-aid-(?P<aid>[0-9]+).htm"
 DB_URL = 'sqlite:///./data/tieba.baidu.com.db'
 
 PAGE_SIZE_POST = 30
@@ -30,6 +24,8 @@ REQUEST_HEADERS = {
 }
 
 MAX_RETRY = 10
+MAX_LOOP = 10000
+MAX_PN = 20000
 RETRY_AFTER = 5
 FATCH_SIZE = 200
 
