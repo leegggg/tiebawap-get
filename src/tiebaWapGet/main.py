@@ -409,7 +409,10 @@ def fetchForumPage(kw,pn,engine,good=None):
         if kzs:
             threads.append(kzs[0])
     for kz in threads:
-        fetchThread(kw=kw, kz=kz, engine=engine, good=good)
+        try:
+            fetchThread(kw=kw, kz=kz, engine=engine, good=good)
+        except Exception as e:
+            logging.warning("Failed fetchThread kw {} kz {}".format(kw,kz))
 
     hasNext = True
     if ret.text.find('>下一页</a>') < 0:
@@ -420,9 +423,13 @@ def fetchForumPage(kw,pn,engine,good=None):
 def fetchForum(kw,engine, good=None):
     pn = 0
     for _ in range(MAX_LOOP):
-        hasNext = fetchForumPage(kw, pn, engine, good=good)
-        if not hasNext:
-            break
+        try:
+            hasNext = fetchForumPage(kw, pn, engine, good=good)
+            if not hasNext:
+                logging.info("Done get kw {} good {}".format(kw,good))
+                break
+        except Exception as e:
+            logging.warning("Failed to fetchForumPage kz {} pn {} with {}".format(kw,pn,e))
 
         # On wap tieba pn can not pass 20000
         if pn > MAX_PN:
@@ -432,7 +439,7 @@ def fetchForum(kw,engine, good=None):
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
+    logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     # url = "m?kz=125327888&pn=0&lp=6015&spn=2&global=1&expand=2"
     # o = urlparse(url)
