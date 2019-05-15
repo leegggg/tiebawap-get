@@ -438,7 +438,7 @@ def fetchForum(kw,engine, good=None):
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.INFO)
     logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     # url = "m?kz=125327888&pn=0&lp=6015&spn=2&global=1&expand=2"
