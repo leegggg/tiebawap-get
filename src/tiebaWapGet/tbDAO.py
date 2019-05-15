@@ -95,6 +95,7 @@ class Thread(Base):
     good = Column(Boolean)
     top = Column(Boolean)
     info = Column(String)
+    auth = Column(String)
     last_date = Column(DateTime)
     mod_date = Column(DateTime)
 
