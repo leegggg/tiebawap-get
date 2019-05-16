@@ -8,7 +8,8 @@ from sqlalchemy import Column, String, DateTime, Integer, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, MAX_RETRY, RETRY_AFTER, URL_BASE_FLR, MAX_LOOP, MAX_PN
+from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, MAX_RETRY, RETRY_AFTER, URL_BASE_FLR, MAX_LOOP, \
+    MAX_PN
 from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader, PostAttachement, Thread
 from dateutil import parser as DateParser
 import logging
@@ -87,7 +88,7 @@ def makeEmptyAttachement(floor, parent, link) -> PostAttachement:
     return att
 
 
-def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override:int=None, floor_override=-1) -> dict:
+def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floor_override=-1) -> dict:
     postHeader = PostHeader()
     content = Content()
     contentHtml = Content_HTML()
@@ -108,7 +109,7 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override:int=None, floor_o
     hasFlr = False
     if replyATag:
         href = replyATag.attrs.get("href")
-        if re.match('回复\([0-9]+\)',replyATag.text.strip()):
+        if re.match('回复\([0-9]+\)', replyATag.text.strip()):
             hasFlr = True
     o = urlparse(href)
     param = parse_qs(o.query)
@@ -119,12 +120,12 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override:int=None, floor_o
         pid = pid[0]
 
     if hasFlr:
-        flrPosts = readFlr(kz=kz,pid=pid)
+        flrPosts = readFlr(kz=kz, pid=pid)
         if flrPosts:
             posts.extend(flrPosts)
 
     if flr:
-        pid = "_flr_{}-{}".format(parent_override,floor_override)
+        pid = "_flr_{}-{}".format(parent_override, floor_override)
 
     un = None
     floor = None
@@ -210,7 +211,6 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override:int=None, floor_o
     }
 
     posts.append(post)
-
 
     logging.debug("Get post from thread {} page {} floor {} pid {}".format(kz, pn, floor, pid))
     return posts
@@ -324,7 +324,7 @@ def readThreadPage(kw, kz, pn, good=None) -> {}:
     return res
 
 
-def readFlrPage(kz, pid, fpn, floor:int=0) -> {}:
+def readFlrPage(kz, pid, fpn, floor: int = 0) -> {}:
     param = {
         "kz": kz,
         "pid": pid,
@@ -341,7 +341,7 @@ def readFlrPage(kz, pid, fpn, floor:int=0) -> {}:
         floor += 1
         for count in range(MAX_RETRY):
             try:
-                post = parsePost(postDiv=postDiv, kz=kz, pn=fpn,floor_override=floor,parent_override=pid,flr=True)
+                post = parsePost(postDiv=postDiv, kz=kz, pn=fpn, floor_override=floor, parent_override=pid, flr=True)
                 posts.extend(post)
             except Exception as e:
                 logging.warning(
@@ -353,7 +353,7 @@ def readFlrPage(kz, pid, fpn, floor:int=0) -> {}:
     res = {
         'thread': None,
         'posts': posts,
-        'floor':floor
+        'floor': floor
     }
 
     if ret.text.find('>下一页</a>') < 0:
@@ -366,13 +366,13 @@ def readFlr(kz, pid):
     posts = []
 
     floor = 0
-    for fpn in range(1,MAX_LOOP):
-        res = readFlrPage(kz=kz, pid=pid, fpn=fpn,floor=floor)
+    for fpn in range(1, MAX_LOOP):
+        res = readFlrPage(kz=kz, pid=pid, fpn=fpn, floor=floor)
         floor = res.get('floor')
         posts.extend(res.get('posts'))
         if res.get('lastpage'):
             break
-    logging.info("Done get flr of kz {} pid {} len: {}".format(kz,pid,len(posts)))
+    logging.info("Done get flr of kz {} pid {} len: {}".format(kz, pid, len(posts)))
     return posts
 
 
@@ -387,21 +387,21 @@ def fetchThread(kw, kz, engine, good=None):
         pn += 10
 
 
-def fetchForumPage(kw,pn,engine,good=None):
+def fetchForumPage(kw, pn, engine, good=None):
     param = {
-        'kw' : kw,
-        'pn' : pn
+        'kw': kw,
+        'pn': pn
     }
     if good:
-        param['lm']=4
-    logging.info("Fetch forum {} page {} with {}".format(kw,pn,param))
+        param['lm'] = 4
+    logging.info("Fetch forum {} page {} with {}".format(kw, pn, param))
     ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
     ret.encoding = 'utf-8'  # ret.apparent_encoding
     soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
     aTags = soup.select('div .i > a')
     threads = []
     for aTag in aTags:
-        aTag:Tag
+        aTag: Tag
         href = aTag.attrs.get("href")
         o = urlparse(href)
         param = parse_qs(o.query)
@@ -412,7 +412,7 @@ def fetchForumPage(kw,pn,engine,good=None):
         try:
             fetchThread(kw=kw, kz=kz, engine=engine, good=good)
         except Exception as e:
-            logging.warning("Failed fetchThread kw {} kz {}".format(kw,kz))
+            logging.warning("Failed fetchThread kw {} kz {}".format(kw, kz))
 
     hasNext = True
     if ret.text.find('>下一页</a>') < 0:
@@ -420,25 +420,26 @@ def fetchForumPage(kw,pn,engine,good=None):
 
     return hasNext
 
-def fetchForum(kw,engine, good=None):
-    pn = 0
+
+def fetchForum(kw, engine, good=None, startPn=0, endPn=MAX_PN):
+    pn = startPn
     for _ in range(MAX_LOOP):
         try:
             hasNext = fetchForumPage(kw, pn, engine, good=good)
             if not hasNext:
-                logging.info("Done get kw {} good {}".format(kw,good))
+                logging.info("Done get kw {} good {}".format(kw, good))
                 break
         except Exception as e:
-            logging.warning("Failed to fetchForumPage kz {} pn {} with {}".format(kw,pn,e))
+            logging.warning("Failed to fetchForumPage kz {} pn {} with {}".format(kw, pn, e))
 
         # On wap tieba pn can not pass 20000
-        if pn > MAX_PN:
+        if pn > endPn:
             break
         pn += 10
 
 
 def main():
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',level=logging.INFO)
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     # url = "m?kz=125327888&pn=0&lp=6015&spn=2&global=1&expand=2"
