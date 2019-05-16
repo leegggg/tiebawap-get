@@ -100,6 +100,46 @@ class Thread(Base):
     mod_date = Column(DateTime)
 
 
+class ThreadHeader(Base):
+    # 表的名字:
+    __tablename__ = 'THREAD_HEADER'
+
+    def __init__(self):
+        pass
+
+    # 表的结构:
+    kz = Column(BigInteger, primary_key=True)
+    kw = Column(String)
+    title = Column(String)
+    good = Column(Boolean)
+    top = Column(Boolean)
+    click = Column(BigInteger)
+    reply = Column(BigInteger)
+    comment = Column(String)
+    last_date = Column(DateTime)
+    mod_date = Column(DateTime)
+
+
+class ThreadError(Base):
+    # 表的名字:
+    __tablename__ = 'THREAD_ERROR'
+
+    def __init__(self):
+        pass
+
+    # 表的结构:
+    uid = Column(String, primary_key=True)
+    kz = Column(BigInteger)
+    kw = Column(String)
+    pn = Column(BigInteger)
+    code = Column(Integer)
+    comment = Column(String)
+    detail = Column(String)
+    mod_date = Column(DateTime)
+
+
+
+
 class PostHeader(Base):
     # 表的名字:
     __tablename__ = 'POST_HEADER'

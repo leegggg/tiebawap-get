@@ -8,9 +8,10 @@ from sqlalchemy import Column, String, DateTime, Integer, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, MAX_RETRY, RETRY_AFTER, URL_BASE_FLR, MAX_LOOP, \
-    MAX_PN
-from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader, PostAttachement, Thread
+from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, DUMMY_KW
+from common import MAX_RETRY, RETRY_AFTER, URL_BASE_FLR, MAX_LOOP, MAX_PN, THREAD_SIZE_SKIP
+from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader
+from tbDAO import PostAttachement, Thread,ThreadError,ThreadHeader
 from dateutil import parser as DateParser
 import logging
 import re
@@ -88,7 +89,7 @@ def makeEmptyAttachement(floor, parent, link) -> PostAttachement:
     return att
 
 
-def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floor_override=-1) -> dict:
+def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floor_override=-1) -> []:
     postHeader = PostHeader()
     content = Content()
     contentHtml = Content_HTML()
@@ -252,6 +253,26 @@ def savePost(post: dict, engine):
         logging.warning("Error save attachments {} with {}".format(post, str(e)))
 
 
+def saveThreadHead(thread: ThreadHeader, engine, error:ThreadError=None):
+    Session = sessionmaker(bind=engine)
+    try:
+        session = Session()
+        if thread:
+            session.merge(thread)
+        session.commit()
+    except Exception as e:
+        logging.warning("Error save thread header {} with {}".format(thread, str(e)))
+
+    try:
+        session = Session()
+        if error:
+            session.merge(error)
+        session.commit()
+    except Exception as e:
+        logging.warning("Error save thread header {} with {}".format(error, str(e)))
+
+
+
 def savePage(page: dict, engine):
     """
     'thread':thread,
@@ -372,7 +393,7 @@ def readFlr(kz, pid):
         posts.extend(res.get('posts'))
         if res.get('lastpage'):
             break
-    logging.info("Done get flr of kz {} pid {} len: {}".format(kz, pid, len(posts)))
+    logging.log(logging.DEBUG+1,"Done get flr of kz {} pid {} len: {}".format(kz, pid, len(posts)))
     return posts
 
 
@@ -387,6 +408,50 @@ def fetchThread(kw, kz, engine, good=None):
         pn += 10
 
 
+def parseThreadHeader(div:Tag,kw=DUMMY_KW)->ThreadHeader:
+
+    thread = ThreadHeader()
+
+    thread.kw = kw
+
+    thread.mod_date = datetime.now()
+
+    "点174592 回536944 5-13"
+    "m?kz=143407634&is_bakan=0&lp=5010&pinf=1_1_280"
+
+    aTag:Tag = div.select_one('a')
+    if aTag:
+        thread.title = aTag.text
+        href = aTag.attrs.get("href")
+        o = urlparse(href)
+        params = parse_qs(o.query)
+        kzs = params.get("kz")
+        if kzs:
+            thread.kz= kzs[0]
+
+    pTag:Tag = div.select_one('p')
+    if pTag:
+        info = pTag.text.strip()
+        match = re.match("点(?P<click>[0-9]+)\s+回(?P<reply>[0-9]+)\s+(?P<date>[^\s]+)",info)
+        if match:
+            thread.click = int(match.group('click'))
+            thread.reply = int(match.group('reply'))
+            thread.last_date = parseDate(match.group('date'))
+
+    spanTags = div.select('span.light')
+    thread.top = None
+    thread.good = None
+    if spanTags:
+        for spanTag in spanTags:
+            spanTag:Tag
+            if spanTag.text.strip() == '顶':
+                thread.top = True
+            if spanTag.text.strip() == '精':
+                thread.good = True
+
+    return thread
+
+
 def fetchForumPage(kw, pn, engine, good=None):
     param = {
         'kw': kw,
@@ -398,21 +463,37 @@ def fetchForumPage(kw, pn, engine, good=None):
     ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
     ret.encoding = 'utf-8'  # ret.apparent_encoding
     soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
-    aTags = soup.select('div .i > a')
+    divTags = soup.select('div .i')
     threads = []
-    for aTag in aTags:
-        aTag: Tag
-        href = aTag.attrs.get("href")
-        o = urlparse(href)
-        param = parse_qs(o.query)
-        kzs = param.get("kz")
-        if kzs:
-            threads.append(kzs[0])
-    for kz in threads:
-        try:
-            fetchThread(kw=kw, kz=kz, engine=engine, good=good)
-        except Exception as e:
-            logging.warning("Failed fetchThread kw {} kz {}".format(kw, kz))
+    for div in divTags:
+        threads.append(parseThreadHeader(div=div,kw=kw))
+
+    for thread in threads:
+        thread: ThreadHeader
+        kz = thread.kz
+        error = None
+        if thread.reply and THREAD_SIZE_SKIP >0 and thread.reply > THREAD_SIZE_SKIP:
+            thread.comment = 'skip'
+            error = ThreadError()
+            error.kw = kw
+            error.mod_date = datetime.now()
+            error.kz = kz
+            comment = 'skip kw {} kz {} - {} for size {} larger than {}'.format(kw,kz,thread.title,thread.reply,THREAD_SIZE_SKIP)
+            error.comment = comment
+            error.code = 1000
+            error.pn = pn
+            import uuid
+            error.uid = str(uuid.uuid4())
+            logging.warning(comment)
+
+        saveThreadHead(thread=thread,error=error,engine=engine)
+        if not error:
+            comment = 'Fatch kw {} kz {} - {} for size {}'.format(kw, kz, thread.title, thread.reply)
+            logging.info(comment)
+            try:
+                fetchThread(kw=kw, kz=kz, engine=engine, good=good)
+            except Exception as e:
+                logging.warning("Failed fetchThread kw {} kz {}".format(kw, kz))
 
     hasNext = True
     if ret.text.find('>下一页</a>') < 0:
@@ -455,7 +536,7 @@ def main():
 
     # fetchThread(kw='显卡', kz="6131086464", engine=engine)
     # fetchForum(kw='四枫院夜一',engine=engine,good=True)
-    fetchForum(kw='柯哀', engine=engine, good=True)
+    fetchForum(kw='EVA', engine=engine, good=True)
 
     # parseDate("12:36")
     pass
