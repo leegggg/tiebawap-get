@@ -10,8 +10,9 @@ def main():
     saveTo = "$PWD/data/websites"
     site = "http://tieba.baidu.com/mo"
     timeFormat = "%Y%m%d%H%M%S"  # 20170716231334
-    start = datetime(2019,1,1)
-    end = datetime.now()
+    start = datetime(2018,1,1)
+    end = datetime(2019.1.1)
+    step = 15
 
     arg="-c 15"
 
@@ -22,7 +23,7 @@ def main():
             break
 
         startStr = current.strftime(timeFormat)
-        current = current + timedelta(days=1)
+        current = current + timedelta(days=step)
         endStr = current.strftime(timeFormat)
         cmd = "docker run --rm -it -v {to}:/websites {image} {site} -f {start} -t {end} {arg}".format(
             to=saveTo,
@@ -33,7 +34,7 @@ def main():
             arg=arg
         )
         print(cmd)
-        #os.system(cmd)
+        os.system(cmd)
 
 
 if __name__ == '__main__':
