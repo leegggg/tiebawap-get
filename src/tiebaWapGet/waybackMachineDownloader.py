@@ -51,9 +51,10 @@ def main():
 
     start = args.startdate
     end = args.enddate
-    print(end)
+
     if not end:
         end = start + timedelta(days=370)
+
     step = args.step
     debug = args.debug
 
