@@ -35,6 +35,13 @@ def main():
                         type=int,
                         default=15)
 
+    parser.add_argument('-c', "--threads",
+                        dest='threads',
+                        help="threads",
+                        required=False,
+                        type=int,
+                        default=15)
+
     parser.add_argument("-d", "--debug",
                         dest='debug',
                         help="dry run",
@@ -55,10 +62,12 @@ def main():
     if not end:
         end = start + timedelta(days=370)
 
-    step = args.step
     debug = args.debug
 
-    arg="-c {}".format(step)
+    threads = args.threads
+    step = args.step
+
+    arg="-c {}".format(threads)
 
 
     current = start
