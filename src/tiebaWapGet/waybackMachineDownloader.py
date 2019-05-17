@@ -35,6 +35,11 @@ def main():
                         type=int,
                         default=15)
 
+    parser.add_argument("-d", "--debug",
+                        dest='debug',
+                        help="dry run",
+                        action="store_true")
+
     args = parser.parse_args()
 
 
@@ -47,6 +52,7 @@ def main():
     start = args.startdate
     end = args.enddate
     step = args.step
+    debug = args.debug
 
     arg="-c {}".format(step)
 
@@ -68,7 +74,10 @@ def main():
             arg=arg
         )
         print(cmd)
-        os.system(cmd)
+        if not debug:
+            os.system(cmd)
+        else:
+            print("debug: {}".format(debug))
 
 
 if __name__ == '__main__':
