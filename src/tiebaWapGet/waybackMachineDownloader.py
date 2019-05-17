@@ -20,7 +20,7 @@ def main():
                         help="The End Date format YYYY-MM-DD (Inclusive)",
                         required=False,
                         type=dateutil.parser.parse,
-                        default=datetime.now())
+                        default=None)
     parser.add_argument('-u', "--url",
                         dest='url',
                         help="URL",
@@ -51,6 +51,8 @@ def main():
 
     start = args.startdate
     end = args.enddate
+    if not end:
+        end = start + timedelta(days=370)
     step = args.step
     debug = args.debug
 
