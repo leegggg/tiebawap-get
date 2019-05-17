@@ -1,19 +1,53 @@
 from datetime import datetime, timedelta
+import argparse
 import os
+import dateutil
 
 # "root@bxclient-ylin:~/archive# docker run --rm -it -v $PWD/websites:/websites hartator/wayback-machine-downloader https://tieba.baidu.com/mo -f 20170719 -t 20170720"
 
 
 def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-f', "--startdate",
+                        dest='startdate',
+                        help="The Start Date - format YYYY-MM-DD",
+                        required=False,
+                        type=dateutil.parser.parse,
+                        default=(datetime.now()-timedelta(days=300)))
+    parser.add_argument('-t', "--enddate",
+                        dest='enddate',
+                        help="The End Date format YYYY-MM-DD (Inclusive)",
+                        required=False,
+                        type=dateutil.parser.parse,
+                        default=datetime.now())
+    parser.add_argument('-u', "--url",
+                        dest='url',
+                        help="URL",
+                        required=False,
+                        type=str,
+                        default="http://tieba.baidu.com/mo")
+
+    parser.add_argument('-s', "--step",
+                        dest='step',
+                        help="step in days",
+                        required=False,
+                        type=int,
+                        default=15)
+
+    args = parser.parse_args()
+
+
     image = "hartator/wayback-machine-downloader"
 
     saveTo = "$PWD/data/websites"
-    site = "http://tieba.baidu.com/mo"
+    site = args.url
     timeFormat = "%Y%m%d%H%M%S"  # 20170716231334
-    start = datetime(2019,1,1)
-    end = datetime.now()
+    start = args.startdate
+    end = args.enddate
+    step = args.step
 
-    arg="-c 15"
+    arg="-c {}".format(step)
 
 
     current = start
