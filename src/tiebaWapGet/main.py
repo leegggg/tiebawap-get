@@ -398,7 +398,7 @@ def readFlr(kz, pid):
 
 
 def fetchThread(kw, kz, engine, good=None):
-    logging.info("Fetch thread {} of {}".format(kz, kw))
+    logging.log(logging.INFO-1,"Fetch thread {} of {}".format(kz, kw))
     pn = 0
     for _ in range(MAX_LOOP):
         page = readThreadPage(kw=kw, kz=kz, pn='{}'.format(pn), good=good)
@@ -452,7 +452,7 @@ def parseThreadHeader(div:Tag,kw=DUMMY_KW)->ThreadHeader:
     return thread
 
 
-def fetchForumPage(kw, pn, engine, good=None):
+def fetchForumPage(kw, pn, engine, good=None, fetchContent=True, threadSkipSize=THREAD_SIZE_SKIP):
     param = {
         'kw': kw,
         'pn': pn
@@ -472,13 +472,14 @@ def fetchForumPage(kw, pn, engine, good=None):
         thread: ThreadHeader
         kz = thread.kz
         error = None
-        if thread.reply and THREAD_SIZE_SKIP >0 and thread.reply > THREAD_SIZE_SKIP:
+        if thread.reply and fetchContent and threadSkipSize >0 and thread.reply > threadSkipSize:
             thread.comment = 'skip'
             error = ThreadError()
             error.kw = kw
             error.mod_date = datetime.now()
             error.kz = kz
-            comment = 'skip kw {} kz {} - {} for size {} larger than {}'.format(kw,kz,thread.title,thread.reply,THREAD_SIZE_SKIP)
+            comment = 'skip kw {} kz {} - {} for size {} larger than {}'\
+                .format(kw,kz,thread.title,thread.reply,threadSkipSize)
             error.comment = comment
             error.code = 1000
             error.pn = pn
@@ -487,7 +488,7 @@ def fetchForumPage(kw, pn, engine, good=None):
             logging.warning(comment)
 
         saveThreadHead(thread=thread,error=error,engine=engine)
-        if not error:
+        if (not error) and fetchContent:
             comment = 'Fatch kw {} kz {} - {} for size {}'.format(kw, kz, thread.title, thread.reply)
             logging.info(comment)
             try:
@@ -502,11 +503,11 @@ def fetchForumPage(kw, pn, engine, good=None):
     return hasNext
 
 
-def fetchForum(kw, engine, good=None, startPn=0, endPn=MAX_PN):
+def fetchForum(kw, engine, good=None, startPn=0, endPn=MAX_PN, fetchContent=True, threadSkipSize=THREAD_SIZE_SKIP):
     pn = startPn
     for _ in range(MAX_LOOP):
         try:
-            hasNext = fetchForumPage(kw, pn, engine, good=good)
+            hasNext = fetchForumPage(kw, pn, engine, good=good,fetchContent=fetchContent,threadSkipSize=threadSkipSize)
             if not hasNext:
                 logging.info("Done get kw {} good {}".format(kw, good))
                 break
@@ -536,7 +537,10 @@ def main():
 
     # fetchThread(kw='显卡', kz="6131086464", engine=engine)
     # fetchForum(kw='四枫院夜一',engine=engine,good=True)
-    fetchForum(kw='EVA', engine=engine, good=True)
+
+
+    fetchForum(kw='柯哀', engine=engine, good=True, fetchContent=False,threadSkipSize=0)
+    # fetchForum(kw='EVA', engine=engine, good=True,fetchContent=True)
 
     # parseDate("12:36")
     pass
