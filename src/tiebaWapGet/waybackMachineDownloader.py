@@ -78,7 +78,7 @@ def main():
         startStr = current.strftime(timeFormat)
         current = current + timedelta(days=step)
         endStr = current.strftime(timeFormat)
-        cmd = "docker run --rm -it -v {to}:/websites {image} {site} -f {start} -t {end} {arg}".format(
+        cmd = "docker run --rm -v {to}:/websites {image} {site} -f {start} -t {end} {arg}".format(
             to=saveTo,
             image=image,
             site=site,
