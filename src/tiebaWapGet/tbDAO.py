@@ -170,5 +170,8 @@ class PostAttachement(Base):
     parent = Column(BigInteger, primary_key=True)
     floor = Column(Integer, primary_key=True)
     link = Column(String, primary_key=True)
+    attId = Column(String)
+    status = Column(Integer)
+    comment = Column(String)
     mod_date = Column(DateTime)
 

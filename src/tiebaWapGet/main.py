@@ -10,8 +10,10 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, DUMMY_KW
 from common import MAX_RETRY, RETRY_AFTER, URL_BASE_FLR, MAX_LOOP, MAX_PN, THREAD_SIZE_SKIP
+from common import ATT_POST_STATUS_MADE
 from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader
 from tbDAO import PostAttachement, Thread,ThreadError,ThreadHeader
+from attachementUtil import makeEmptyAttachementHeader, makeEmptyAttachement
 from dateutil import parser as DateParser
 import logging
 import re
@@ -28,13 +30,16 @@ req.mount('https://', httpAdapter)
 "m?kz=125327888&pn=30"
 
 
-def insertOrIgnoreAll(objs, engine):
+def insertOrIgnoreAll(objs, engine, merge=False):
     Session = sessionmaker(bind=engine)
     count = 0
     for link in objs:
         try:
             session = Session()
-            session.add(link)
+            if not merge:
+                session.add(link)
+            else:
+                session.merge(link)
             session.commit()
             count += 1
         except IntegrityError as e:
@@ -80,20 +85,12 @@ def readAdditionalData(kz, pn, floor) -> Tag:
     return postDivs
 
 
-def makeEmptyAttachement(floor, parent, link) -> PostAttachement:
-    att = PostAttachement()
-    att.mod_date = datetime.now()
-    att.floor = floor
-    att.parent = parent
-    att.link = link
-    return att
-
-
 def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floor_override=-1) -> []:
     postHeader = PostHeader()
     content = Content()
     contentHtml = Content_HTML()
     attachments = []
+    attHeaders = []
     posts = []
 
     postHeader.mod_date = datetime.now()
@@ -203,12 +200,18 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floo
         att = makeEmptyAttachement(floor, postHeader.parent, href)
         if att:
             attachments.append(att)
+            header = makeEmptyAttachementHeader(att)
+            if header:
+                attHeaders.append(header)
+                att.attId = header.link
+                att.status = ATT_POST_STATUS_MADE
 
     post = {
         'header': postHeader,
         'text': content,
         'html': contentHtml,
-        'attachments': attachments
+        'attachments': attachments,
+        'attachmentHeaders': attHeaders
     }
 
     posts.append(post)
@@ -248,9 +251,15 @@ def savePost(post: dict, engine):
 
     try:
         links = post.get('attachments')
-        insertOrIgnoreAll(links, engine)
+        insertOrIgnoreAll(links, engine, merge=True)
     except Exception as e:
         logging.warning("Error save attachments {} with {}".format(post, str(e)))
+
+    try:
+        links = post.get('attachmentHeaders')
+        insertOrIgnoreAll(links, engine,merge=True)
+    except Exception as e:
+        logging.warning("Error save attachmentHeaders {} with {}".format(post, str(e)))
 
 
 def saveThreadHead(thread: ThreadHeader, engine, error:ThreadError=None):
@@ -539,7 +548,7 @@ def main():
     # fetchForum(kw='四枫院夜一',engine=engine,good=True)
 
 
-    fetchForum(kw='柯哀', engine=engine, good=True, fetchContent=False,threadSkipSize=0)
+    # fetchForum(kw='柯哀', engine=engine, good=True, fetchContent=True,threadSkipSize=0)
     # fetchForum(kw='EVA', engine=engine, good=True,fetchContent=True)
 
     # parseDate("12:36")
