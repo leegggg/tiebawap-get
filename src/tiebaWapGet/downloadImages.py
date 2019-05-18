@@ -121,7 +121,7 @@ def fetchAttAll(dbUrl, attrfilter=None):
 
             print("{} Got {} subs took {:.3f}(sec) old is {} blocked {}, select nb {}: {} - {}".format(
                 datetime.now().isoformat(), nbRes, datetime.now().timestamp() - start, nbResOld, nbBlocked,
-                index, AttachementHeader.pid, AttachementHeader.link))
+                index, header.pid, header.link))
             nbResOld = nbRes
 
             try:
