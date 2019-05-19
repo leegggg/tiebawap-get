@@ -21,7 +21,7 @@ def main():
                         help="URL",
                         required=False,
                         type=str,
-                        default="data/ca.list")
+                        default="websites")
 
 
     parser.add_argument("-d", "--debug",

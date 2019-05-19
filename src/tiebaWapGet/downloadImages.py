@@ -125,7 +125,7 @@ def fetchAttAll(dbUrl, attrfilter=None):
             nbResOld = nbRes
 
             try:
-                sub = downloadAttachement(header)
+                header = downloadAttachement(header)
             except Exception as e:
                 from common import STATUS_UNKNOW_ERROR
                 header.status = STATUS_UNKNOW_ERROR
