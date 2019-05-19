@@ -2,3 +2,5 @@ bs4
 requests
 sqlalchemy
 python-dateutil
+influxdb
+selenium

@@ -17,15 +17,7 @@ from attachementUtil import makeEmptyAttachementHeader, makeEmptyAttachement
 from dateutil import parser as DateParser
 import logging
 import re
-
-import requests
-from requests.adapters import HTTPAdapter
-
-req = requests.Session()
-httpAdapter = HTTPAdapter(max_retries=MAX_RETRY)
-
-req.mount('http://', httpAdapter)
-req.mount('https://', httpAdapter)
+from req import req
 
 "m?kz=125327888&pn=30"
 
