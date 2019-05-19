@@ -74,7 +74,8 @@ def write(points):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    logFmt = '[%(asctime)s] p%(process)s {%(filename)s:%(lineno)d} %(levelname)s - %(message)s'
+    # logFmt = '[%(asctime)s] p%(process)s {%(filename)s:%(lineno)d} %(levelname)s - %(message)s'
+    logFmt = '%(filename)s:%(lineno)d %(levelname)s - %(message)s'
     logging.basicConfig(level=logging.INFO, format=logFmt)
 
     parser.add_argument('-i', "--in",
