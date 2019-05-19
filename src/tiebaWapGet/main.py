@@ -522,6 +522,7 @@ def fetchForum(kw, engine, good=None, startPn=0, endPn=MAX_PN, fetchContent=True
 
 
 def main():
+    import argparse
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
@@ -529,7 +530,49 @@ def main():
     # o = urlparse(url)
     # query = parse_qs(o.query)
 
-    engine = create_engine(DB_URL)
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-d', "--db",
+                        dest='db',
+                        help="path to db",
+                        required=False,
+                        type=str,
+                        default=DB_URL)
+
+    parser.add_argument('-k', "--kw",
+                        dest='kw',
+                        help="kw",
+                        required=False,
+                        type=str,
+                        default="柯哀")
+
+    parser.add_argument('-f', "--from",
+                        dest='fromPn',
+                        help="from pn",
+                        required=False,
+                        type=int,
+                        default=0)
+
+    parser.add_argument('-m', "--mmx",
+                        dest='mmx',
+                        help="skip thread with posts bigger than mmx",
+                        required=False,
+                        type=int,
+                        default=THREAD_SIZE_SKIP)
+
+
+    parser.add_argument('-a', "--all",
+                        dest='all',
+                        help="all thread",
+                        required=False,
+                        action="store_true")
+
+    args = parser.parse_args()
+
+    dbUrl = args.db
+    engine = create_engine(dbUrl)
+    kw = args.kw
+    good = not args.all
     Base.metadata.create_all(engine)
 
     # readFlrPage(kz="125327888", pid="1058754776", fpn="1")
@@ -538,9 +581,9 @@ def main():
 
     # fetchThread(kw='显卡', kz="6131086464", engine=engine)
     # fetchForum(kw='四枫院夜一',engine=engine,good=True)
-
-
-    # fetchForum(kw='柯哀', engine=engine, good=True, fetchContent=True,threadSkipSize=0)
+    # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zkw.tieba.baidu.com.db -a -f 1620
+    # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zhenjie.tieba.baidu.com.db -a
+    fetchForum(kw=kw, engine=engine, good=good, fetchContent=True,threadSkipSize=args.mmx, startPn=args.fromPn)
     # fetchForum(kw='EVA', engine=engine, good=True,fetchContent=True)
 
     # parseDate("12:36")

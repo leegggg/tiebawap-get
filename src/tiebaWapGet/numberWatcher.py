@@ -27,37 +27,39 @@ def read(kws):
 
         url='https://tieba.baidu.com/f?kw={}'.format(kw)
         driver.get(url)
-        ret = driver.page_source
-        # ret = req.get(url=url, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
-        # ret.encoding = 'utf-8'  # ret.apparent_encoding
-        soup: BeautifulSoup = BeautifulSoup(ret, 'html.parser')
-        divTags:Tag = soup.select_one('div.th_footer_bright > div.th_footer_l')
-        info = divTags.get_text(separator='',strip=True)
-        regexp = r".*主题.*数(?P<thread>[0-9]+)个.*贴子.*数(?P<post>[0-9]+)篇.*数(?P<member>[0-9]+)"
-        match = re.match(regexp,info)
+        try:
+            ret = driver.page_source
+            # ret = req.get(url=url, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
+            # ret.encoding = 'utf-8'  # ret.apparent_encoding
+            soup: BeautifulSoup = BeautifulSoup(ret, 'html.parser')
+            divTags:Tag = soup.select_one('div.th_footer_bright > div.th_footer_l')
+            info = divTags.get_text(separator='',strip=True)
+            regexp = r".*主题.*数(?P<thread>[0-9]+)个.*贴子.*数(?P<post>[0-9]+)篇.*数(?P<member>[0-9]+)"
+            match = re.match(regexp,info)
 
-        point = None
-        if match:
-            timestamp = datetime.now() - timedelta(seconds=TIME_ZONE_OFFSET_SECONDS)
-            point = {
-                "measurement": "tznumber",
-                "tags": {
-                    "kw": kw,
-                },
-                "time": timestamp,
-                "fields": {
-                    "thread": int(match.group('thread')),
-                    "post": int(match.group('post')),
-                    "member": int(match.group('member'))
+            point = None
+            if match:
+                timestamp = datetime.now() - timedelta(seconds=TIME_ZONE_OFFSET_SECONDS)
+                point = {
+                    "measurement": "tznumber",
+                    "tags": {
+                        "kw": kw,
+                    },
+                    "time": timestamp,
+                    "fields": {
+                        "thread": int(match.group('thread')),
+                        "post": int(match.group('post')),
+                        "member": int(match.group('member'))
+                    }
                 }
-            }
 
-        fields = None
-        if point:
-            fields = point.get('fields')
-            points.append(point)
-
-        logging.info("Fetch forum {} with {} got {}".format(kw, url, fields))
+            fields = None
+            if point:
+                fields = point.get('fields')
+                points.append(point)
+            logging.info("Fetch forum {} with {} got {}".format(kw, url, fields))
+        except Exception as e:
+            logging.warning("Failed Fetch forum {} with {} got exception {}".format(kw, url, e))
 
     driver.quit()
 
