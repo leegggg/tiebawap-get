@@ -141,9 +141,22 @@ def fetchAttAll(dbUrl, attrfilter=None):
 
 
 if __name__ == '__main__':
+    import argparse
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    makeEmptyAttachements(dbUrl=DB_URL)
-    fetchAttAll(dbUrl=DB_URL)
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-d', "--db",
+                        dest='db',
+                        help="path to db",
+                        required=False,
+                        type=str,
+                        default=DB_URL)
+
+    args = parser.parse_args()
+
+    makeEmptyAttachements(dbUrl=args.db)
+    fetchAttAll(dbUrl=args.db)
 

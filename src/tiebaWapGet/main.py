@@ -553,6 +553,13 @@ def main():
                         type=int,
                         default=0)
 
+    parser.add_argument('-t', "--to",
+                        dest='toPn',
+                        help="to pn",
+                        required=False,
+                        type=int,
+                        default=MAX_PN)
+
     parser.add_argument('-m', "--mmx",
                         dest='mmx',
                         help="skip thread with posts bigger than mmx",
@@ -583,7 +590,7 @@ def main():
     # fetchForum(kw='四枫院夜一',engine=engine,good=True)
     # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zkw.tieba.baidu.com.db -a -f 1620
     # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zhenjie.tieba.baidu.com.db -a
-    fetchForum(kw=kw, engine=engine, good=good, fetchContent=True,threadSkipSize=args.mmx, startPn=args.fromPn)
+    fetchForum(kw=kw, engine=engine, good=good, fetchContent=True,threadSkipSize=args.mmx, startPn=args.fromPn,endPn=args.toPn)
     # fetchForum(kw='EVA', engine=engine, good=True,fetchContent=True)
 
     # parseDate("12:36")
