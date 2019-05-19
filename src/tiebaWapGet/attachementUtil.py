@@ -11,8 +11,8 @@ def parseTieBaImgUrl(org):
 
     try:
         o:ParseResult = urlparse(org)
-        if not o.hostname == 'c.hiphotos.baidu.com':
-            return org
+        # if not o.hostname == 'c.hiphotos.baidu.com':
+        #     return org
 
         query = parse_qs(o.query)
         src = query.get('src')
