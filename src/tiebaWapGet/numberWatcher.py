@@ -17,12 +17,15 @@ TIME_ZONE_OFFSET_SECONDS = 8 * 3600
 def read(kws):
     options = Options()
     options.add_argument('-headless')
-    driver = webdriver.Firefox()
+    driver = webdriver.Firefox(options=options)
 
     points = []
+
     for kw in kws:
+        if len(kw)<=0:
+            continue
+
         url='https://tieba.baidu.com/f?kw={}'.format(kw)
-        logging.info("Fetch forum {} page {} with {}".format(kw, '',''))
         driver.get(url)
         ret = driver.page_source
         # ret = req.get(url=url, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
@@ -33,6 +36,7 @@ def read(kws):
         regexp = r".*主题.*数(?P<thread>[0-9]+)个.*贴子.*数(?P<post>[0-9]+)篇.*数(?P<member>[0-9]+)"
         match = re.match(regexp,info)
 
+        point = None
         if match:
             timestamp = datetime.now() - timedelta(seconds=TIME_ZONE_OFFSET_SECONDS)
             point = {
@@ -47,7 +51,13 @@ def read(kws):
                     "member": int(match.group('member'))
                 }
             }
+
+        fields = None
+        if point:
+            fields = point.get('fields')
             points.append(point)
+
+        logging.info("Fetch forum {} with {} got {}".format(kw, url, fields))
 
     driver.quit()
 
@@ -57,14 +67,15 @@ def read(kws):
 def write(points):
     db = 'tieba'
     client = InfluxDBClient(host='ada.lan.linyz.net', port=8086,username='root',password='root',database=db)
-    client.delete_series(db,"tznumber")
+    # client.delete_series(db,"tznumber")
     client.create_database('tieba')
     client.write_points(points,database='tieba')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    logging.basicConfig(level=logging.INFO)
+    logFmt = '[%(asctime)s] p%(process)s {%(filename)s:%(lineno)d} %(levelname)s - %(message)s'
+    logging.basicConfig(level=logging.INFO, format=logFmt)
 
     parser.add_argument('-i', "--in",
                         dest='listFile',
