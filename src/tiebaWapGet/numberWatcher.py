@@ -10,6 +10,9 @@ from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.options import Options
 import re
 import argparse
+from datetime import timedelta
+
+TIME_ZONE_OFFSET_SECONDS = 8 * 3600
 
 def read(kws):
     options = Options()
@@ -29,13 +32,15 @@ def read(kws):
         info = divTags.get_text(separator='',strip=True)
         regexp = r".*主题.*数(?P<thread>[0-9]+)个.*贴子.*数(?P<post>[0-9]+)篇.*数(?P<member>[0-9]+)"
         match = re.match(regexp,info)
+
         if match:
+            timestamp = datetime.now() - timedelta(seconds=TIME_ZONE_OFFSET_SECONDS)
             point = {
                 "measurement": "tznumber",
                 "tags": {
                     "kw": kw,
                 },
-                "time": datetime.now(),
+                "time": timestamp,
                 "fields": {
                     "thread": int(match.group('thread')),
                     "post": int(match.group('post')),
@@ -50,7 +55,9 @@ def read(kws):
 
 
 def write(points):
-    client = InfluxDBClient(host='ada.lan.linyz.net', port=8086,username='root',password='root')
+    db = 'tieba'
+    client = InfluxDBClient(host='ada.lan.linyz.net', port=8086,username='root',password='root',database=db)
+    client.delete_series(db,"tznumber")
     client.create_database('tieba')
     client.write_points(points,database='tieba')
 
