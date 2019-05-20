@@ -20,14 +20,15 @@ def read(kws):
     driver = webdriver.Firefox(options=options)
 
     points = []
-
+    e = None
     for kw in kws:
         if len(kw)<=0:
             continue
 
-        url='https://tieba.baidu.com/f?kw={}'.format(kw)
-        driver.get(url)
+        fields = {}
+        url = 'https://tieba.baidu.com/f?kw={}'.format(kw)
         try:
+            driver.get(url)
             ret = driver.page_source
             # ret = req.get(url=url, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
             # ret.encoding = 'utf-8'  # ret.apparent_encoding
@@ -36,30 +37,45 @@ def read(kws):
             info = divTags.get_text(separator='',strip=True)
             regexp = r".*主题.*数(?P<thread>[0-9]+)个.*贴子.*数(?P<post>[0-9]+)篇.*数(?P<member>[0-9]+)"
             match = re.match(regexp,info)
-
-            point = None
             if match:
-                timestamp = datetime.now() - timedelta(seconds=TIME_ZONE_OFFSET_SECONDS)
-                point = {
-                    "measurement": "tznumber",
-                    "tags": {
-                        "kw": kw,
-                    },
-                    "time": timestamp,
-                    "fields": {
-                        "thread": int(match.group('thread')),
-                        "post": int(match.group('post')),
-                        "member": int(match.group('member'))
-                    }
-                }
-
-            fields = None
-            if point:
-                fields = point.get('fields')
-                points.append(point)
-            logging.info("Fetch forum {} with {} got {}".format(kw, url, fields))
+                fields["thread"]= int(match.group('thread'))
+                fields["post"]= int(match.group('post'))
+                fields["member"]= int(match.group('member'))
         except Exception as e:
-            logging.warning("Failed Fetch forum {} with {} got exception {}".format(kw, url, e))
+            logging.warning("Failed Fetch forum {} with {} got {}".format(kw,url,e))
+
+
+        url = 'https://tieba.baidu.com/f?kw={}&ie=utf-8&tab=good'.format(kw)
+        try:
+            driver.get(url)
+            ret = driver.page_source
+            # ret = req.get(url=url, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
+            # ret.encoding = 'utf-8'  # ret.apparent_encoding
+            soup: BeautifulSoup = BeautifulSoup(ret, 'html.parser')
+            divTags:Tag = soup.select_one('div.th_footer_bright > div.th_footer_l')
+            info = divTags.get_text(separator='',strip=True)
+            regexp = r".*精品数(?P<thread>[0-9]+)个"
+            match = re.match(regexp,info)
+            if match:
+                fields["good"]= int(match.group('thread'))
+        except Exception as e:
+            logging.warning("Failed Fetch forum {} with {} got {}".format(kw,url,e))
+
+        if fields:
+            timestamp = datetime.now() - timedelta(seconds=TIME_ZONE_OFFSET_SECONDS)
+            point = {
+                "measurement": "tznumber",
+                "tags": {
+                    "kw": kw,
+                },
+                "time": timestamp,
+                "fields": fields
+            }
+
+            points.append(point)
+            logging.info("Fetch forum {} got {}".format(kw, fields))
+        else:
+            logging.warning("Failed Fetch forum {}".format(kw))
 
     driver.quit()
 
