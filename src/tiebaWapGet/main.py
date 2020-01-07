@@ -8,11 +8,12 @@ from sqlalchemy import Column, String, DateTime, Integer, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
-from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL, DUMMY_KW
-from common import MAX_RETRY, RETRY_AFTER, URL_BASE_FLR, MAX_LOOP, MAX_PN, THREAD_SIZE_SKIP
+from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL
+from common import DUMMY_KW, MAX_LOOP, MAX_PN, THREAD_SIZE_SKIP
+from common import MAX_RETRY, RETRY_AFTER, URL_BASE_FLR
 from common import ATT_POST_STATUS_MADE
 from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader
-from tbDAO import PostAttachement, Thread,ThreadError,ThreadHeader
+from tbDAO import PostAttachement, Thread, ThreadError, ThreadHeader
 from attachementUtil import makeEmptyAttachementHeader, makeEmptyAttachement
 from dateutil import parser as DateParser
 import logging
@@ -54,7 +55,8 @@ def parseDate(dateStr):
     try:
         current = DateParser.parse(dateStr)
     except (ValueError, OverflowError):
-        logging.debug("Failed to parse date string {} use {} as fall back.".format(dateStr, current))
+        logging.debug(
+            "Failed to parse date string {} use {} as fall back.".format(dateStr, current))
 
     return current
 
@@ -70,10 +72,12 @@ def readAdditionalData(kz, pn, floor) -> Tag:
         "expand": floor,
         "global": 1
     }
-    ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
+    ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS,
+                  params=param, timeout=(30, 30))
     ret.encoding = 'utf-8'  # ret.apparent_encoding
     soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
-    postDivs = soup.select_one('body > div > div.d:nth-child(4) > div.i:nth-child(1)')
+    postDivs = soup.select_one(
+        'body > div > div.d:nth-child(4) > div.i:nth-child(1)')
     return postDivs
 
 
@@ -109,7 +113,8 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floo
     else:
         pid = pid[0]
 
-    if hasFlr:
+    # Disable flr for faster fetch
+    if hasFlr and False:
         flrPosts = readFlr(kz=kz, pid=pid)
         if flrPosts:
             posts.extend(flrPosts)
@@ -161,7 +166,8 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floo
         if additionalPostDivTag:
             # contentText = "{}{}".format(contentText,additionalPostDivTag.getText(separator="\n",strip=True))
             # contentSource = "{}{}".format(contentText,str(additionalPostDivTag))
-            contentText = additionalPostDivTag.getText(separator="\n", strip=True)
+            contentText = additionalPostDivTag.getText(
+                separator="\n", strip=True)
             contentSource = str(additionalPostDivTag)
 
     content.mod_date = datetime.now()
@@ -208,7 +214,8 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floo
 
     posts.append(post)
 
-    logging.debug("Get post from thread {} page {} floor {} pid {}".format(kz, pn, floor, pid))
+    logging.debug(
+        "Get post from thread {} page {} floor {} pid {}".format(kz, pn, floor, pid))
     return posts
 
 
@@ -245,16 +252,18 @@ def savePost(post: dict, engine):
         links = post.get('attachments')
         insertOrIgnoreAll(links, engine, merge=True)
     except Exception as e:
-        logging.warning("Error save attachments {} with {}".format(post, str(e)))
+        logging.warning(
+            "Error save attachments {} with {}".format(post, str(e)))
 
     try:
         links = post.get('attachmentHeaders')
-        insertOrIgnoreAll(links, engine,merge=True)
+        insertOrIgnoreAll(links, engine, merge=True)
     except Exception as e:
-        logging.warning("Error save attachmentHeaders {} with {}".format(post, str(e)))
+        logging.warning(
+            "Error save attachmentHeaders {} with {}".format(post, str(e)))
 
 
-def saveThreadHead(thread: ThreadHeader, engine, error:ThreadError=None):
+def saveThreadHead(thread: ThreadHeader, engine, error: ThreadError = None):
     Session = sessionmaker(bind=engine)
     try:
         session = Session()
@@ -262,7 +271,8 @@ def saveThreadHead(thread: ThreadHeader, engine, error:ThreadError=None):
             session.merge(thread)
         session.commit()
     except Exception as e:
-        logging.warning("Error save thread header {} with {}".format(thread, str(e)))
+        logging.warning(
+            "Error save thread header {} with {}".format(thread, str(e)))
 
     try:
         session = Session()
@@ -270,8 +280,8 @@ def saveThreadHead(thread: ThreadHeader, engine, error:ThreadError=None):
             session.merge(error)
         session.commit()
     except Exception as e:
-        logging.warning("Error save thread header {} with {}".format(error, str(e)))
-
+        logging.warning(
+            "Error save thread header {} with {}".format(error, str(e)))
 
 
 def savePage(page: dict, engine):
@@ -299,7 +309,8 @@ def readThreadPage(kw, kz, pn, good=None) -> {}:
         "pn": pn
     }
 
-    ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
+    ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS,
+                  params=param, timeout=(30, 30))
     ret.encoding = 'utf-8'  # ret.apparent_encoding
     soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
     titleTag: Tag = soup.select_one("body > div > div.bc.p > strong")
@@ -311,7 +322,8 @@ def readThreadPage(kw, kz, pn, good=None) -> {}:
     thread.kz = kz
     thread.kw = kw
     thread.good = good
-    userTag = soup.select_one("body > div > div:nth-child(4) > div:nth-child(1) > span.g > a")
+    userTag = soup.select_one(
+        "body > div > div:nth-child(4) > div:nth-child(1) > span.g > a")
     if userTag:
         href = userTag.attrs.get("href")
         o = urlparse(href)
@@ -353,7 +365,8 @@ def readFlrPage(kz, pid, fpn, floor: int = 0) -> {}:
         "fpn": fpn
     }
 
-    ret = req.get(url=URL_BASE_FLR, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
+    ret = req.get(url=URL_BASE_FLR, headers=REQUEST_HEADERS,
+                  params=param, timeout=(30, 30))
     ret.encoding = 'utf-8'  # ret.apparent_encoding
     soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
 
@@ -363,7 +376,8 @@ def readFlrPage(kz, pid, fpn, floor: int = 0) -> {}:
         floor += 1
         for count in range(MAX_RETRY):
             try:
-                post = parsePost(postDiv=postDiv, kz=kz, pn=fpn, floor_override=floor, parent_override=pid, flr=True)
+                post = parsePost(postDiv=postDiv, kz=kz, pn=fpn,
+                                 floor_override=floor, parent_override=pid, flr=True)
                 posts.extend(post)
             except Exception as e:
                 logging.warning(
@@ -394,12 +408,13 @@ def readFlr(kz, pid):
         posts.extend(res.get('posts'))
         if res.get('lastpage'):
             break
-    logging.log(logging.DEBUG+1,"Done get flr of kz {} pid {} len: {}".format(kz, pid, len(posts)))
+    logging.log(logging.DEBUG+1,
+                "Done get flr of kz {} pid {} len: {}".format(kz, pid, len(posts)))
     return posts
 
 
 def fetchThread(kw, kz, engine, good=None):
-    logging.log(logging.INFO-1,"Fetch thread {} of {}".format(kz, kw))
+    logging.log(logging.INFO-1, "Fetch thread {} of {}".format(kz, kw))
     pn = 0
     for _ in range(MAX_LOOP):
         page = readThreadPage(kw=kw, kz=kz, pn='{}'.format(pn), good=good)
@@ -409,7 +424,7 @@ def fetchThread(kw, kz, engine, good=None):
         pn += 10
 
 
-def parseThreadHeader(div:Tag,kw=DUMMY_KW)->ThreadHeader:
+def parseThreadHeader(div: Tag, kw=DUMMY_KW) -> ThreadHeader:
 
     thread = ThreadHeader()
 
@@ -420,7 +435,7 @@ def parseThreadHeader(div:Tag,kw=DUMMY_KW)->ThreadHeader:
     "点174592 回536944 5-13"
     "m?kz=143407634&is_bakan=0&lp=5010&pinf=1_1_280"
 
-    aTag:Tag = div.select_one('a')
+    aTag: Tag = div.select_one('a')
     if aTag:
         thread.title = aTag.text
         href = aTag.attrs.get("href")
@@ -428,12 +443,13 @@ def parseThreadHeader(div:Tag,kw=DUMMY_KW)->ThreadHeader:
         params = parse_qs(o.query)
         kzs = params.get("kz")
         if kzs:
-            thread.kz= kzs[0]
+            thread.kz = kzs[0]
 
-    pTag:Tag = div.select_one('p')
+    pTag: Tag = div.select_one('p')
     if pTag:
         info = pTag.text.strip()
-        match = re.match("点(?P<click>[0-9]+)\s+回(?P<reply>[0-9]+)\s+(?P<date>[^\s]+)",info)
+        match = re.match(
+            "点(?P<click>[0-9]+)\s+回(?P<reply>[0-9]+)\s+(?P<date>[^\s]+)", info)
         if match:
             thread.click = int(match.group('click'))
             thread.reply = int(match.group('reply'))
@@ -444,7 +460,7 @@ def parseThreadHeader(div:Tag,kw=DUMMY_KW)->ThreadHeader:
     thread.good = None
     if spanTags:
         for spanTag in spanTags:
-            spanTag:Tag
+            spanTag: Tag
             if spanTag.text.strip() == '顶':
                 thread.top = True
             if spanTag.text.strip() == '精':
@@ -458,29 +474,55 @@ def fetchForumPage(kw, pn, engine, good=None, fetchContent=True, threadSkipSize=
         'kw': kw,
         'pn': pn
     }
+
+    # if good:
+    #     param['lm'] = 4
+    # logging.info("Fetch forum {} page {} with {}".format(kw, pn, param))
+    # ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS,
+    #               params=param, timeout=(30, 30))
+    # ret.encoding = 'utf-8'  # ret.apparent_encoding
+    # soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
+    # divTags = soup.select('div .i')
+    # threads = []
+    # for div in divTags:
+    #     threads.append(parseThreadHeader(div=div, kw=kw))
+
+    # PC page
+    param['ie'] = 'utf-8'
+    param['cid'] = 0
     if good:
-        param['lm'] = 4
+        param['tab'] = 'good'
     logging.info("Fetch forum {} page {} with {}".format(kw, pn, param))
-    ret = req.get(url=URL_BASE_TB, headers=REQUEST_HEADERS, params=param, timeout=(30, 30))
+    pcPageUrl = 'https://tieba.baidu.com/f'
+    ret = req.get(url=pcPageUrl, headers=REQUEST_HEADERS,
+                  params=param, timeout=(30, 30))
     ret.encoding = 'utf-8'  # ret.apparent_encoding
-    soup: BeautifulSoup = BeautifulSoup(ret.text, 'html.parser')
-    divTags = soup.select('div .i')
+
+    threadRegexp = re.compile('"/p/(?P<kz>[0-9]+)')
+    matches = threadRegexp.finditer(ret.text)
+
+    kzSet = set()
+    for match in matches:
+        kzSet.add(match.group('kz'))
+
     threads = []
-    for div in divTags:
-        threads.append(parseThreadHeader(div=div,kw=kw))
+    for kz in kzSet:
+        thread = ThreadHeader()
+        thread.kz = kz
+        threads.append(thread)
 
     for thread in threads:
         thread: ThreadHeader
         kz = thread.kz
         error = None
-        if thread.reply and fetchContent and threadSkipSize >0 and thread.reply > threadSkipSize:
+        if thread.reply and fetchContent and threadSkipSize > 0 and thread.reply > threadSkipSize:
             thread.comment = 'skip'
             error = ThreadError()
             error.kw = kw
             error.mod_date = datetime.now()
             error.kz = kz
             comment = 'skip kw {} kz {} - {} for size {} larger than {}'\
-                .format(kw,kz,thread.title,thread.reply,threadSkipSize)
+                .format(kw, kz, thread.title, thread.reply, threadSkipSize)
             error.comment = comment
             error.code = 1000
             error.pn = pn
@@ -488,14 +530,16 @@ def fetchForumPage(kw, pn, engine, good=None, fetchContent=True, threadSkipSize=
             error.uid = str(uuid.uuid4())
             logging.warning(comment)
 
-        saveThreadHead(thread=thread,error=error,engine=engine)
+        saveThreadHead(thread=thread, error=error, engine=engine)
         if (not error) and fetchContent:
-            comment = 'Fatch kw {} kz {} - {} for size {}'.format(kw, kz, thread.title, thread.reply)
+            comment = 'Fatch kw {} kz {} - {} for size {}'.format(
+                kw, kz, thread.title, thread.reply)
             logging.info(comment)
             try:
                 fetchThread(kw=kw, kz=kz, engine=engine, good=good)
             except Exception as e:
-                logging.warning("Failed fetchThread kw {} kz {}".format(kw, kz))
+                logging.warning(
+                    "Failed fetchThread kw {} kz {}".format(kw, kz))
 
     hasNext = True
     if ret.text.find('>下一页</a>') < 0:
@@ -508,22 +552,27 @@ def fetchForum(kw, engine, good=None, startPn=0, endPn=MAX_PN, fetchContent=True
     pn = startPn
     for _ in range(MAX_LOOP):
         try:
-            hasNext = fetchForumPage(kw, pn, engine, good=good,fetchContent=fetchContent,threadSkipSize=threadSkipSize)
+            hasNext = fetchForumPage(
+                kw, pn, engine, good=good, fetchContent=fetchContent, threadSkipSize=threadSkipSize)
             if not hasNext:
-                logging.info("Done get kw {} good {}".format(kw, good))
-                break
+                # Not check next for pc index
+                # logging.info("Done get kw {} good {}".format(kw, good))
+                # break
+                pass
         except Exception as e:
-            logging.warning("Failed to fetchForumPage kz {} pn {} with {}".format(kw, pn, e))
+            logging.warning(
+                "Failed to fetchForumPage kz {} pn {} with {}".format(kw, pn, e))
 
         # On wap tieba pn can not pass 20000
         if pn > endPn:
             break
-        pn += 10
+        pn += 50
 
 
 def main():
     import argparse
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
     logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     # url = "m?kz=125327888&pn=0&lp=6015&spn=2&global=1&expand=2"
@@ -567,7 +616,6 @@ def main():
                         type=int,
                         default=THREAD_SIZE_SKIP)
 
-
     parser.add_argument('-a', "--all",
                         dest='all',
                         help="all thread",
@@ -590,7 +638,8 @@ def main():
     # fetchForum(kw='四枫院夜一',engine=engine,good=True)
     # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zkw.tieba.baidu.com.db -a -f 1620
     # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zhenjie.tieba.baidu.com.db -a
-    fetchForum(kw=kw, engine=engine, good=good, fetchContent=True,threadSkipSize=args.mmx, startPn=args.fromPn,endPn=args.toPn)
+    fetchForum(kw=kw, engine=engine, good=good, fetchContent=True,
+               threadSkipSize=args.mmx, startPn=args.fromPn, endPn=args.toPn)
     # fetchForum(kw='EVA', engine=engine, good=True,fetchContent=True)
 
     # parseDate("12:36")
