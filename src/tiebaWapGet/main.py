@@ -1,10 +1,7 @@
 from urllib.parse import urlparse, parse_qs
-import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, DateTime, Integer, Float
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime
@@ -12,8 +9,8 @@ from common import URL_BASE_TB, REQUEST_HEADERS, FALL_BACKDATE, DB_URL
 from common import DUMMY_KW, MAX_LOOP, MAX_PN, THREAD_SIZE_SKIP
 from common import MAX_RETRY, RETRY_AFTER, URL_BASE_FLR
 from common import ATT_POST_STATUS_MADE
-from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader
-from tbDAO import PostAttachement, Thread, ThreadError, ThreadHeader
+from tbDAO import Base, PostHeader, Content, Content_HTML
+from tbDAO import Thread, ThreadError, ThreadHeader
 from attachementUtil import makeEmptyAttachementHeader, makeEmptyAttachement
 from dateutil import parser as DateParser
 import logging
@@ -35,7 +32,7 @@ def insertOrIgnoreAll(objs, engine, merge=False):
                 session.merge(link)
             session.commit()
             count += 1
-        except IntegrityError as e:
+        except IntegrityError:
             pass
 
 
@@ -81,7 +78,7 @@ def readAdditionalData(kz, pn, floor) -> Tag:
     return postDivs
 
 
-def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floor_override=-1) -> []:
+def parsePost(postDiv: Tag, kz, pn, flr=False, getFlr=False, parent_override: int = None, floor_override=-1) -> []:
     postHeader = PostHeader()
     content = Content()
     contentHtml = Content_HTML()
@@ -103,7 +100,7 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floo
     hasFlr = False
     if replyATag:
         href = replyATag.attrs.get("href")
-        if re.match('回复\([0-9]+\)', replyATag.text.strip()):
+        if re.match(r'回复\([0-9]+\)', replyATag.text.strip()):
             hasFlr = True
     o = urlparse(href)
     param = parse_qs(o.query)
@@ -114,7 +111,7 @@ def parsePost(postDiv: Tag, kz, pn, flr=False, parent_override: int = None, floo
         pid = pid[0]
 
     # Disable flr for faster fetch
-    if hasFlr and False:
+    if hasFlr and getFlr:
         flrPosts = readFlr(kz=kz, pid=pid)
         if flrPosts:
             posts.extend(flrPosts)
@@ -303,7 +300,7 @@ def savePage(page: dict, engine):
         savePost(post=post, engine=engine)
 
 
-def readThreadPage(kw, kz, pn, good=None) -> {}:
+def readThreadPage(kw, kz, pn, good=None, getFlr=False) -> {}:
     param = {
         "kz": kz,
         "pn": pn
@@ -338,7 +335,7 @@ def readThreadPage(kw, kz, pn, good=None) -> {}:
     for postDiv in postDivs:
         for count in range(MAX_RETRY):
             try:
-                post = parsePost(postDiv=postDiv, kz=kz, pn=pn)
+                post = parsePost(postDiv=postDiv, kz=kz, pn=pn, getFlr=getFlr)
                 posts.extend(post)
             except Exception as e:
                 logging.warning(
@@ -413,11 +410,12 @@ def readFlr(kz, pid):
     return posts
 
 
-def fetchThread(kw, kz, engine, good=None):
+def fetchThread(kw, kz, engine, good=None, getFlr=False):
     logging.log(logging.INFO-1, "Fetch thread {} of {}".format(kz, kw))
     pn = 0
     for _ in range(MAX_LOOP):
-        page = readThreadPage(kw=kw, kz=kz, pn='{}'.format(pn), good=good)
+        page = readThreadPage(kw=kw, kz=kz, pn='{}'.format(
+            pn), good=good, getFlr=getFlr)
         savePage(page=page, engine=engine)
         if page.get('lastpage'):
             break
@@ -449,7 +447,7 @@ def parseThreadHeader(div: Tag, kw=DUMMY_KW) -> ThreadHeader:
     if pTag:
         info = pTag.text.strip()
         match = re.match(
-            "点(?P<click>[0-9]+)\s+回(?P<reply>[0-9]+)\s+(?P<date>[^\s]+)", info)
+            r"点(?P<click>[0-9]+)\s+回(?P<reply>[0-9]+)\s+(?P<date>[^\s]+)", info)
         if match:
             thread.click = int(match.group('click'))
             thread.reply = int(match.group('reply'))
@@ -469,7 +467,61 @@ def parseThreadHeader(div: Tag, kw=DUMMY_KW) -> ThreadHeader:
     return thread
 
 
-def fetchForumPage(kw, pn, engine, good=None, fetchContent=True, threadSkipSize=THREAD_SIZE_SKIP):
+def parsePcThreadHeader(liTag: Tag):
+    import json
+    metadata = json.loads(liTag.attrs.get("data-field"))
+    thread = ThreadHeader()
+    thread.kz = metadata.get("id")
+    thread.author_name = metadata.get("author_name")
+    thread.author_nickname = metadata.get("author_nickname")
+    thread.author_portrait = metadata.get("author_portrait")
+    thread.first_post_id = metadata.get("first_post_id")
+    thread.reply = metadata.get("reply_num")
+    thread.bakan = metadata.get("is_bakan")
+    thread.vid = metadata.get("vid")
+    thread.good = metadata.get("is_good")
+    thread.top = metadata.get("is_top")
+    thread.protal = metadata.get("is_protal")
+    thread.membertop = metadata.get("is_membertop")
+    thread.multi_forum = metadata.get("is_multi_forum")
+    thread.frs_tpoint = metadata.get("frs_tpoint")
+    titleATag = liTag.select_one(".j_th_tit a")
+    if titleATag:
+        thread.title = titleATag.text
+    thread.mod_date = datetime.now()
+    if not thread.kz:
+        thread = None
+    return thread
+
+
+def parsePcThreadHeaderPage(pcPageHtml: str):
+    pcPageHtml = pcPageHtml.replace(
+        '\r', '').replace('\n', '').replace("'", '"')
+
+    # Last page
+    if pcPageHtml.find("下一页") < 0 and pcPageHtml.find("尾页") >= 0:
+        return []
+
+    threadRegexp = re.compile(
+        '<li class=" j_thread_list .+?</li>', re.MULTILINE)
+    matches = threadRegexp.findall(pcPageHtml)
+    threads = []
+    for match in matches:
+        soup: BeautifulSoup = BeautifulSoup(match, 'html.parser')
+        liTag = soup.select_one('li')
+        thread = None
+        try:
+            thread = parsePcThreadHeader(liTag)
+        except Exception as e:
+            print(str(e))
+        if thread:
+            threads.append(parsePcThreadHeader(liTag))
+    return threads
+
+
+def fetchForumPage(
+        kw, pn, engine, good=None, flr=False, fetchContent=True,
+        threadSkipSize=THREAD_SIZE_SKIP):
     param = {
         'kw': kw,
         'pn': pn
@@ -498,22 +550,24 @@ def fetchForumPage(kw, pn, engine, good=None, fetchContent=True, threadSkipSize=
                   params=param, timeout=(30, 30))
     ret.encoding = 'utf-8'  # ret.apparent_encoding
 
-    threadRegexp = re.compile('"/p/(?P<kz>[0-9]+)')
-    matches = threadRegexp.finditer(ret.text)
+    # threadRegexp = re.compile('"/p/(?P<kz>[0-9]+)')
+    # matches = threadRegexp.finditer(ret.text)
+    # kzSet = set()
+    # for match in matches:
+    #     kzSet.add(match.group('kz'))
 
-    kzSet = set()
-    for match in matches:
-        kzSet.add(match.group('kz'))
+    # threads = []
+    # for kz in kzSet:
+    #     thread = ThreadHeader()
+    #     thread.kz = kz
+    #     threads.append(thread)
 
-    threads = []
-    for kz in kzSet:
-        thread = ThreadHeader()
-        thread.kz = kz
-        threads.append(thread)
+    threads = parsePcThreadHeaderPage(ret.text)
 
     for thread in threads:
         thread: ThreadHeader
         kz = thread.kz
+        thread.kw = kw
         error = None
         if thread.reply and fetchContent and threadSkipSize > 0 and thread.reply > threadSkipSize:
             thread.comment = 'skip'
@@ -536,29 +590,31 @@ def fetchForumPage(kw, pn, engine, good=None, fetchContent=True, threadSkipSize=
                 kw, kz, thread.title, thread.reply)
             logging.info(comment)
             try:
-                fetchThread(kw=kw, kz=kz, engine=engine, good=good)
+                fetchThread(kw=kw, kz=kz, engine=engine, good=good, getFlr=flr)
             except Exception as e:
                 logging.warning(
-                    "Failed fetchThread kw {} kz {}".format(kw, kz))
+                    "Failed fetchThread kw {} kz {} with {}".
+                    format(kw, kz, str(e)))
 
     hasNext = True
-    if ret.text.find('>下一页</a>') < 0:
+    if ret.text.find('下一页') < 0 or len(threads) <= 0:
         hasNext = False
 
     return hasNext
 
 
-def fetchForum(kw, engine, good=None, startPn=0, endPn=MAX_PN, fetchContent=True, threadSkipSize=THREAD_SIZE_SKIP):
+def fetchForum(
+        kw, engine, good=None, flr=False, startPn=0, endPn=MAX_PN,
+        fetchContent=True, threadSkipSize=THREAD_SIZE_SKIP):
     pn = startPn
     for _ in range(MAX_LOOP):
         try:
             hasNext = fetchForumPage(
-                kw, pn, engine, good=good, fetchContent=fetchContent, threadSkipSize=threadSkipSize)
+                kw, pn, engine, good=good, flr=flr,
+                fetchContent=fetchContent, threadSkipSize=threadSkipSize)
             if not hasNext:
-                # Not check next for pc index
-                # logging.info("Done get kw {} good {}".format(kw, good))
-                # break
-                pass
+                logging.info("Done get kw {} good {}".format(kw, good))
+                break
         except Exception as e:
             logging.warning(
                 "Failed to fetchForumPage kz {} pn {} with {}".format(kw, pn, e))
@@ -572,7 +628,8 @@ def fetchForum(kw, engine, good=None, startPn=0, endPn=MAX_PN, fetchContent=True
 def main():
     import argparse
     logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO)
     logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     # url = "m?kz=125327888&pn=0&lp=6015&spn=2&global=1&expand=2"
@@ -618,7 +675,13 @@ def main():
 
     parser.add_argument('-a', "--all",
                         dest='all',
-                        help="all thread",
+                        help="all thread, if not given fatch good threads only",
+                        required=False,
+                        action="store_true")
+
+    parser.add_argument('-b', "--flr",
+                        dest='flr',
+                        help="fatch flr (aka. floor in floor)",
                         required=False,
                         action="store_true")
 
@@ -628,6 +691,7 @@ def main():
     engine = create_engine(dbUrl)
     kw = args.kw
     good = not args.all
+    flr = args.flr
     Base.metadata.create_all(engine)
 
     # readFlrPage(kz="125327888", pid="1058754776", fpn="1")
@@ -635,10 +699,12 @@ def main():
     # page = readThreadPage(kw='柯哀', kz="125327888", pn='1890')
 
     # fetchThread(kw='显卡', kz="6131086464", engine=engine)
-    # fetchForum(kw='四枫院夜一',engine=engine,good=True)
-    # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zkw.tieba.baidu.com.db -a -f 1620
-    # python src/tiebaWapGet/main.py -k '**' --db=sqlite:///./data/zhenjie.tieba.baidu.com.db -a
-    fetchForum(kw=kw, engine=engine, good=good, fetchContent=True,
+    # fetchForum(kw='反哀', engine=engine, good=False, flr=True)
+    # python src/tiebaWapGet/main.py \
+    # -k '**' --db=sqlite:///./data/zkw.tieba.baidu.com.db -a -f 1620
+    # python src/tiebaWapGet/main.py -k '**' \
+    # --db=sqlite:///./data/zhenjie.tieba.baidu.com.db -a
+    fetchForum(kw=kw, engine=engine, good=good, flr=flr, fetchContent=True,
                threadSkipSize=args.mmx, startPn=args.fromPn, endPn=args.toPn)
     # fetchForum(kw='EVA', engine=engine, good=True,fetchContent=True)
 

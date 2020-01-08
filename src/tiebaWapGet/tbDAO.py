@@ -1,11 +1,12 @@
-from sqlalchemy import create_engine
+# from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, DateTime, Integer, Float, BigInteger, Boolean
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import IntegrityError
-from datetime import datetime
+from sqlalchemy import Column, String, DateTime, Integer, BigInteger, Boolean
+# from sqlalchemy.orm import sessionmaker
+# from sqlalchemy.exc import IntegrityError
+# from datetime import datetime
 
 Base = declarative_base()
+
 
 class ImagePost(Base):
     # 表的名字:
@@ -115,6 +116,16 @@ class ThreadHeader(Base):
     top = Column(Boolean)
     click = Column(BigInteger)
     reply = Column(BigInteger)
+    author_name = Column(String)
+    author_nickname = Column(String)
+    author_portrait = Column(String)
+    first_post_id = Column(BigInteger)
+    bakan = Column(Boolean)
+    vid = Column(String)
+    protal = Column(Boolean)
+    membertop = Column(Boolean)
+    multi_forum = Column(Boolean)
+    frs_tpoint = Column(String)
     comment = Column(String)
     last_date = Column(DateTime)
     mod_date = Column(DateTime)
@@ -136,8 +147,6 @@ class ThreadError(Base):
     comment = Column(String)
     detail = Column(String)
     mod_date = Column(DateTime)
-
-
 
 
 class PostHeader(Base):
@@ -174,4 +183,3 @@ class PostAttachement(Base):
     status = Column(Integer)
     comment = Column(String)
     mod_date = Column(DateTime)
-

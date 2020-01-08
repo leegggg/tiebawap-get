@@ -13,4 +13,3 @@ httpAdapter = HTTPAdapter(max_retries=MAX_RETRY)
 
 req.mount('http://', httpAdapter)
 req.mount('https://', httpAdapter)
-
