@@ -1,5 +1,5 @@
 from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader
-from tbDAO import PostAttachement, Thread,ThreadError,ThreadHeader
+from tbDAO import PostAttachement, Thread, ThreadError, ThreadHeader
 from datetime import datetime
 from common import REQUEST_HEADERS
 import requests
@@ -10,7 +10,7 @@ def parseTieBaImgUrl(org):
     from urllib.parse import urlparse, parse_qs, ParseResult, unquote
 
     try:
-        o:ParseResult = urlparse(org)
+        o: ParseResult = urlparse(org)
         # if not o.hostname == 'c.hiphotos.baidu.com':
         #     return org
 
@@ -20,7 +20,7 @@ def parseTieBaImgUrl(org):
             return org
 
         src = src[0]
-        url = unquote(src,encoding='gbk')
+        url = unquote(src, encoding='gbk')
 
         return url
     except:
@@ -38,7 +38,7 @@ def makeEmptyAttachement(floor, parent, link) -> PostAttachement:
     return att
 
 
-def makeEmptyAttachementHeader(attachementLink:PostAttachement) -> AttachementHeader:
+def makeEmptyAttachementHeader(attachementLink: PostAttachement) -> AttachementHeader:
     att = AttachementHeader()
     att.mod_date = datetime.now()
     att.link = parseTieBaImgUrl(attachementLink.link)
@@ -95,4 +95,3 @@ if __name__ == '__main__':
     src = parseTieBaImgUrl(url)
 
     pass
-
