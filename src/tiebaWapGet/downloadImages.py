@@ -159,4 +159,3 @@ if __name__ == '__main__':
 
     makeEmptyAttachements(dbUrl=args.db)
     fetchAttAll(dbUrl=args.db)
-

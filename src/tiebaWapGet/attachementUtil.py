@@ -1,12 +1,11 @@
-from tbDAO import Base, PostHeader, Content, Content_HTML, AttachementHeader
-from tbDAO import PostAttachement, Thread, ThreadError, ThreadHeader
+from tbDAO import AttachementHeader
+from tbDAO import PostAttachement
 from datetime import datetime
 from common import REQUEST_HEADERS
 import requests
 
 
 def parseTieBaImgUrl(org):
-    import re
     from urllib.parse import urlparse, parse_qs, ParseResult, unquote
 
     try:
@@ -23,7 +22,7 @@ def parseTieBaImgUrl(org):
         url = unquote(src, encoding='gbk')
 
         return url
-    except:
+    except Exception:
         pass
 
     return org
@@ -48,7 +47,6 @@ def makeEmptyAttachementHeader(attachementLink: PostAttachement) -> AttachementH
 
 
 def downloadAttachement(att: AttachementHeader):
-    import shutil
     import os.path
     from pathlib import Path
     from common import ATTACHEMENT_BASE_PATH
@@ -91,7 +89,5 @@ def downloadAttachement(att: AttachementHeader):
 
 
 if __name__ == '__main__':
-    url = "http://gss3.bdstatic.com/84oSdTum2Q5BphGlnYG/timg?wapp&quality=80&size=b400_2000&cut_x=0&cut_w=0&cut_y=0&cut_h=0&sec=1369815402&di=86ad451e706e0313228004fefbaa7837&wh_rate=null&src=http%3A%2F%2Fhiphotos.baidu.com%2F%25C0%25E4%25D4%25C2%25D3%25F4%2Fpic%2Fitem%2F1a540b32debfdde15fdf0efa.jpg"
-    src = parseTieBaImgUrl(url)
 
     pass
