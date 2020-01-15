@@ -8,7 +8,7 @@ PAGE_SIZE_THREAD = 20
 
 addUrl = "/q---{uuid:s}%3AFG%3D1--1-3-0--2--wapp_{ts:s}".format(
     uuid=str(uuid.uuid4()).replace('-', '').upper(),
-    ts=str(datetime.now().timestamp()*1000).replace('.', '_'))
+    ts=str(datetime.datetime.now().timestamp()*1000).replace('.', '_'))
 
 URL_BASE = "http://tieba.baidu.com/mo{}/".format(addUrl)
 URL_BASE_TB = "{}m".format(URL_BASE)
