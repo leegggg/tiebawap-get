@@ -1,5 +1,6 @@
 import datetime
 import uuid
+import random
 
 DB_URL = 'sqlite:///./data/tieba.baidu.com.db'
 
@@ -18,7 +19,8 @@ FALL_BACKDATE = datetime.datetime(1970, 1, 1, 0, 0, 0)
 
 
 USER_AGENT_UC_MIDP = "UCWEB/2.0 (MIDP-2.0; U; zh-CN; SM-P601) U2/1.0.0 UCBrowser/3.4.3.532 U2/1.0.0 Mobile"
-USER_AGENT_UC_FF_59_WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:59.0) Gecko/20100101 Firefox/59.0"
+USER_AGENT_UC_FF_59_WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{v:d}.0) Gecko/20100101 Firefox/{v:d}.0".format(
+    v=random.randint(54, 72))
 
 REQUEST_HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',

@@ -699,7 +699,7 @@ def main():
     # page = readThreadPage(kw='柯哀', kz="125327888", pn='1890')
 
     # fetchThread(kw='显卡', kz="6131086464", engine=engine)
-    # fetchForum(kw='反哀', engine=engine, good=False, flr=True)
+    # fetchForum(kw='袭人', engine=engine, good=False, flr=True)
     # python src/tiebaWapGet/main.py \
     # -k '**' --db=sqlite:///./data/zkw.tieba.baidu.com.db -a -f 1620
     # python src/tiebaWapGet/main.py -k '**' \
@@ -709,6 +709,7 @@ def main():
     # fetchForum(kw='EVA', engine=engine, good=True,fetchContent=True)
 
     # parseDate("12:36")
+    logging.info("All done")
     pass
 
 
