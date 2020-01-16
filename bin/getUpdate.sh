@@ -4,7 +4,13 @@ if [[ -z $1 ]]; then
     exit
 fi
 
+endpn=200
+if [[ !-z $2 ]]; then
+    endpn=$2
+fi
+
+
 cd /home/ylin/tiebawap-get
 source env/bin/activate
 # python -u src/tiebaWapGet/numberWatcher.py
-python -u src/tiebaWapGet/main.py -d sqlite:////home/ylin/anna/ext_hdd/by-uuid/aea3c7d1-7bf3-4028-a87f-b9dc140a6eec/all.$1.tieba.baidu.com.db -k $1 -a -b -t 200
+python -u src/tiebaWapGet/main.py -d sqlite:////home/ylin/anna/ext_hdd/by-uuid/aea3c7d1-7bf3-4028-a87f-b9dc140a6eec/all.$1.tieba.baidu.com.db -k $1 -a -b -t $endpn
