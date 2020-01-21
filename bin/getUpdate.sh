@@ -5,7 +5,11 @@ if [[ -z $1 ]]; then
 fi
 
 endpn=200
-if [[ !-z $2 ]]; then
+if test -z "$2"
+then
+    echo "$2 is empty"
+else
+    echo "$2 is NOT empty"
     endpn=$2
 fi
 
